@@ -1,8 +1,7 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 /* eslint-disable jsx-a11y/control-has-associated-label */
-import React, { useEffect, useState } from 'react';
+import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { UserWarning } from './UserWarning';
-// import { getTodos, USER_ID } from './api/todos';
 import * as todoService from './api/todos';
 import { Todo } from './types/Todo';
 import classNames from 'classnames';
@@ -11,43 +10,96 @@ type FilterTypes = 'All' | 'Active' | 'Completed';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [allTodos, setAllTodos] = useState<Todo[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<FilterTypes>('All');
-  // const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
   // const [selectedPost, setSelectedPost] = useState<Todo | null>(null);
 
   // #region services
   function loadTodos() {
-    // setLoading(true);
-
     todoService
       .getTodos()
       .then((todosList: Todo[]) => {
-        setAllTodos(todosList);
         setTodos(todosList);
       })
       .catch(() => setErrorMessage('Unable to load todos'));
-    // .finally(() => setLoading(false));
   }
 
   function deleteTodos(todoId: number) {
-    todoService.deleteTodos(todoId).then(() => {
-      setAllTodos(currentTodos =>
-        currentTodos.filter(todo => todo.id !== todoId),
-      );
+    setLoading(true);
+    todoService
+      .deleteTodos(todoId)
+      .then(() => {
+        setTodos(currentTodos =>
+          currentTodos.filter(todo => todo.id !== todoId),
+        );
+        setErrorMessage('');
+      })
+      .finally(() => setLoading(false));
+  }
 
-      setTodos(currentTodos => currentTodos.filter(todo => todo.id !== todoId));
-    });
+  function addTodo({ title, userId, completed }: Todo) {
+    setLoading(true);
+    todoService
+      .addPost({ title, userId, completed })
+      .then(newPost => {
+        setTodos(currentTodos => [...currentTodos, newPost]);
+      })
+      .finally(() => setLoading(false));
   }
   // #endregion
+
+  // #region form
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+  };
+
+  const handleChecked = (id: number) => {
+    setTodos(currentTodos => {
+      return currentTodos.map(todo => {
+        if (todo.id === id) {
+          return { ...todo, completed: !todo.completed };
+        }
+
+        return todo;
+      });
+    });
+
+    // setAllTodos(currentTodos => {
+    //   return currentTodos.map(todo => {
+    //     if (todo.id === id) {
+    //       return { ...todo, completed: !todo.completed };
+    //     }
+
+    //     return todo;
+    //   });
+    // });
+  };
+  // #endregion
+
+  const filteredTodos = useMemo(() => {
+    if (selectedFilter === 'Active') {
+      return [...todos].filter(todo => !todo.completed);
+    }
+
+    if (selectedFilter === 'Completed') {
+      return [...todos].filter(todo => todo.completed);
+    }
+
+    return todos;
+  }, [selectedFilter, todos]);
 
   useEffect(loadTodos, []);
 
   useEffect(() => {
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
       setErrorMessage('');
     }, 3000);
+
+    return () => {
+      clearTimeout(timerId);
+    };
   }, [errorMessage]);
 
   if (!todoService.USER_ID) {
@@ -55,20 +107,19 @@ export const App: React.FC = () => {
   }
 
   // #region filter
+
   const handleFilterAll = () => {
-    setTodos(allTodos);
     setSelectedFilter('All');
   };
 
   const handleFilterActive = () => {
-    setTodos(allTodos.filter(todo => !todo.completed));
     setSelectedFilter('Active');
   };
 
   const handleFilterCompleted = () => {
-    setTodos(allTodos.filter(todo => todo.completed));
     setSelectedFilter('Completed');
   };
+
   // #endregion
 
   // console.log(todos);
@@ -87,18 +138,39 @@ export const App: React.FC = () => {
           />
 
           {/* Add a todo on form submit */}
-          <form>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              if (query.trim() === '') {
+                setErrorMessage('Title should not be empty');
+
+                return;
+              }
+
+              addTodo({
+                id: Math.max(...todos.map(todo => todo.id)) + 1,
+                title: query,
+                userId: todoService.USER_ID,
+                completed: false,
+              });
+
+              setQuery('');
+            }}
+          >
             <input
               data-cy="NewTodoField"
               type="text"
               className="todoapp__new-todo"
               placeholder="What needs to be done?"
+              value={query}
+              onChange={handleChange}
+              autoFocus
             />
           </form>
         </header>
 
         <section className="todoapp__main" data-cy="TodoList">
-          {todos.map(todo => (
+          {filteredTodos.map(todo => (
             <div
               key={todo.id}
               data-cy="Todo"
@@ -110,6 +182,7 @@ export const App: React.FC = () => {
                   type="checkbox"
                   className="todo__status"
                   checked={todo.completed}
+                  onChange={() => handleChecked(todo.id)}
                 />
               </label>
 
@@ -128,19 +201,24 @@ export const App: React.FC = () => {
               </button>
 
               {/* overlay will cover the todo while it is being deleted or updated */}
-              <div data-cy="TodoLoader" className="modal overlay">
+              <div
+                data-cy="TodoLoader"
+                className={classNames('modal overlay', {
+                  'is-active': loading,
+                })}
+              >
                 <div className="modal-background has-background-white-ter" />
                 <div className="loader" />
               </div>
             </div>
           ))}
         </section>
-
+        {/* !!!!!!!!!!! */}
         {/* Hide the footer if there are no todos */}
-        {allTodos.length > 0 && (
+        {todos.length > 0 && (
           <footer className="todoapp__footer" data-cy="Footer">
             <span className="todo-count" data-cy="TodosCounter">
-              {allTodos.filter(todo => !todo.completed).length} items left
+              {[...todos].filter(todo => !todo.completed).length} items left
             </span>
 
             {/* Active link should have the 'selected' class */}
@@ -184,6 +262,10 @@ export const App: React.FC = () => {
               type="button"
               className="todoapp__clear-completed"
               data-cy="ClearCompletedButton"
+              disabled={[...todos].filter(todo => todo.completed).length === 0}
+              onClick={() => {
+                todos.map(todo => todo.completed && deleteTodos(todo.id));
+              }}
             >
               Clear completed
             </button>
@@ -208,9 +290,9 @@ export const App: React.FC = () => {
           onClick={() => setErrorMessage('')}
         />
         {/* show only one message at a time */}
-        {/* Unable to load todos
+        {/* Unable to load todos +
           <br />
-          Title should not be empty
+          Title should not be empty +
           <br />
           Unable to add a todo
           <br />
