@@ -1,28 +1,41 @@
-import React, { ChangeEvent, FormEvent, useState } from 'react';
+import React, {
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Todo } from '../../types/Todo';
 import * as todoService from '../../api/todos';
+import classNames from 'classnames';
 
 interface Props {
-  todos: Todo[];
   onTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
+  onLoading: React.Dispatch<React.SetStateAction<number[]>>;
+  onTempTodo: React.Dispatch<React.SetStateAction<Todo | null>>;
   onErrorMessage: (message: string) => void;
+  todos: Todo[];
+  disabledButton: boolean;
 }
 
-export const Header: React.FC<Props> = ({ todos, onTodos, onErrorMessage }) => {
+export const Header: React.FC<Props> = ({
+  onTodos,
+  onErrorMessage,
+  onLoading,
+  onTempTodo,
+  todos,
+  disabledButton,
+}) => {
   const [query, setQuery] = useState('');
+  const [disabledInput, setDisabledInput] = useState(false);
 
-  function addTodo({ title, userId, completed }: Todo) {
-    // setLoading(true);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-    todoService
-      .addTodos({ title, userId, completed })
-      .then(newPost => {
-        onTodos(currentTodos => [...currentTodos, newPost]);
-      })
-      .finally(() => {
-        // setLoading(false);
-      });
-  }
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [disabledInput]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -30,29 +43,77 @@ export const Header: React.FC<Props> = ({ todos, onTodos, onErrorMessage }) => {
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    onLoading(prev => [...prev, 0]);
+    setDisabledInput(true);
+
     if (query.trim() === '') {
       onErrorMessage('Title should not be empty');
+      onTempTodo(null);
+      setDisabledInput(false);
 
       return;
     }
 
-    addTodo({
-      id: Math.max(...todos.map(todo => todo.id)) + 1,
+    onTempTodo({
+      id: 0,
       title: query,
       userId: todoService.USER_ID,
       completed: false,
     });
 
+    todoService
+      .addTodos({
+        title: query,
+        userId: todoService.USER_ID,
+        completed: false,
+      })
+      .then(newPost => {
+        onTodos(currentTodos => [...currentTodos, newPost]);
+      })
+      .catch(() => onErrorMessage('Unable to add a todo'))
+      .finally(() => {
+        onTempTodo(null);
+        setDisabledInput(false);
+        onLoading(prev => prev.filter(item => item !== 0));
+      });
     setQuery('');
   };
+
+  function handleClickAllCompleted(todosToUpdate: Todo[]) {
+    todosToUpdate.map(todoToUpdate => {
+      if ((!disabledButton && !todoToUpdate.completed) || disabledButton) {
+        onLoading(prev => [...prev, todoToUpdate.id]);
+      }
+
+      todoService
+        .updateTodos({
+          ...todoToUpdate,
+          completed: disabledButton ? false : true,
+        })
+        .then(() => {
+          onTodos(currentTodos =>
+            currentTodos.map(item => {
+              return { ...item, completed: disabledButton ? false : true };
+            }),
+          );
+        })
+        .catch(() => onErrorMessage('Unable to update a todo'))
+        .finally(() => {
+          onLoading(prev => prev.filter(item => item !== todoToUpdate.id));
+        });
+    });
+  }
 
   return (
     <header className="todoapp__header">
       {/* this button should have `active` class only if all todos are completed */}
       <button
         type="button"
-        className="todoapp__toggle-all active"
+        className={classNames('todoapp__toggle-all', {
+          active: disabledButton,
+        })}
         data-cy="ToggleAllButton"
+        onClick={() => handleClickAllCompleted(todos)}
       />
 
       {/* Add a todo on form submit */}
@@ -64,7 +125,8 @@ export const Header: React.FC<Props> = ({ todos, onTodos, onErrorMessage }) => {
           placeholder="What needs to be done?"
           value={query}
           onChange={handleChange}
-          autoFocus
+          disabled={disabledInput}
+          ref={inputRef}
         />
       </form>
     </header>

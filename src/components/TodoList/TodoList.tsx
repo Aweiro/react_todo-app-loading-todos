@@ -1,40 +1,96 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Todo } from '../../types/Todo';
 import { TodoItem } from '../TodoItem/TodoItem';
+import * as todoService from '../../api/todos';
 
 interface Props {
+  filteredTodos: Todo[];
   todos: Todo[];
   onTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
-  onDeleteTodos: (id: number) => void;
+  onLoading: React.Dispatch<React.SetStateAction<number[]>>;
+  loading: number[];
+  tempTodo: Todo | null;
+  onErrorMessage: (message: string) => void;
+  onDisabledButton: (message: boolean) => void;
 }
 
 export const TodoList: React.FC<Props> = ({
+  filteredTodos,
   todos,
   onTodos,
-  onDeleteTodos,
+  onLoading,
+  loading,
+  tempTodo,
+  onErrorMessage,
+  onDisabledButton,
 }) => {
-  const handleChecked = (id: number) => {
-    onTodos(currentTodos => {
-      return currentTodos.map(todo => {
-        if (todo.id === id) {
-          return { ...todo, completed: !todo.completed };
-        }
+  function updatePost(todoToUpdate: Todo) {
+    onLoading(prev => [...prev, todoToUpdate.id]);
 
-        return todo;
-      });
-    });
-  };
+    todoService
+      .updateTodos(todoToUpdate)
+      .then(updatedTodo => {
+        onTodos(currentTodos => {
+          return currentTodos.map(currentTodo => {
+            if (currentTodo.id === updatedTodo.id) {
+              return { ...currentTodo, completed: !currentTodo.completed };
+            }
+
+            return currentTodo;
+          });
+        });
+      })
+      .catch(() => onErrorMessage('Unable to update a todo'))
+      .finally(() =>
+        onLoading(prev => prev.filter(item => item !== todoToUpdate.id)),
+      );
+  }
+
+  function deleteTodos(todoId: number) {
+    onLoading(prev => [...prev, todoId]);
+
+    todoService
+      .deleteTodos(todoId)
+      .then(() => {
+        onTodos(currentTodos =>
+          currentTodos.filter(todo => todo.id !== todoId),
+        );
+      })
+      .catch(() => onErrorMessage('Unable to delete a todo'))
+      .finally(() => onLoading(prev => prev.filter(item => item !== todoId)));
+  }
+
+  useEffect(() => {
+    const isAllCompleted =
+      [...todos].filter(todo => todo.completed).length === todos.length;
+
+    if (isAllCompleted) {
+      onDisabledButton(true);
+    } else {
+      onDisabledButton(false);
+    }
+  }, [todos, onDisabledButton]);
 
   return (
     <section className="todoapp__main" data-cy="TodoList">
-      {todos.map(todo => (
+      {filteredTodos.map(todo => (
         <TodoItem
           key={todo.id}
           todo={todo}
-          onHandleChecked={handleChecked}
-          onDeleteTodos={onDeleteTodos}
+          onHandleChecked={updatePost}
+          onDeleteTodos={deleteTodos}
+          loading={loading}
         />
       ))}
+
+      {tempTodo && (
+        <TodoItem
+          todo={tempTodo}
+          onHandleChecked={() => {}}
+          onDeleteTodos={() => {}}
+          loading={loading}
+        />
+      )}
     </section>
   );
 };

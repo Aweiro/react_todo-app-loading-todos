@@ -7,13 +7,15 @@ import classNames from 'classnames';
 interface Props {
   todo: Todo;
   onDeleteTodos: (id: number) => void;
-  onHandleChecked: (id: number) => void;
+  onHandleChecked: (todo: Todo) => void;
+  loading: number[];
 }
 
 export const TodoItem: React.FC<Props> = ({
   todo,
   onHandleChecked,
   onDeleteTodos,
+  loading,
 }) => {
   return (
     <div
@@ -26,7 +28,9 @@ export const TodoItem: React.FC<Props> = ({
           type="checkbox"
           className="todo__status"
           checked={todo.completed}
-          onChange={() => onHandleChecked(todo.id)}
+          onChange={() => {
+            onHandleChecked({ ...todo, completed: !todo.completed });
+          }}
         />
       </label>
 
@@ -48,7 +52,7 @@ export const TodoItem: React.FC<Props> = ({
       <div
         data-cy="TodoLoader"
         className={classNames('modal overlay', {
-          // 'is-active': loading && selectedPost === todo.id,
+          'is-active': loading.includes(todo.id || 0),
         })}
       >
         <div className="modal-background has-background-white-ter" />

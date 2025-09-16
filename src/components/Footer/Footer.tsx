@@ -1,6 +1,7 @@
 import classNames from 'classnames';
 import React from 'react';
 import { Todo } from '../../types/Todo';
+import * as todoService from '../../api/todos';
 
 type FilterTypes = 'All' | 'Active' | 'Completed';
 
@@ -8,14 +9,18 @@ interface Props {
   todos: Todo[];
   filterType: FilterTypes;
   onFilterType: (v: FilterTypes) => void;
-  onDeleteTodos: (id: number) => void;
+  onTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
+  onLoading: React.Dispatch<React.SetStateAction<number[]>>;
+  onErrorMessage: (message: string) => void;
 }
 
 export const Footer: React.FC<Props> = ({
   todos,
   filterType,
   onFilterType,
-  onDeleteTodos,
+  onTodos,
+  onLoading,
+  onErrorMessage,
 }) => {
   const handleFilterAll = () => {
     onFilterType('All');
@@ -28,6 +33,25 @@ export const Footer: React.FC<Props> = ({
   const handleFilterCompleted = () => {
     onFilterType('Completed');
   };
+
+  function deleteCompletedTodos() {
+    todos.map(todo => {
+      if (todo.completed) {
+        onLoading(prev => [...prev, todo.id]);
+        todoService
+          .deleteTodos(todo.id)
+          .then(() =>
+            onTodos(currentTodos =>
+              currentTodos.filter(currentTodo => currentTodo.id !== todo.id),
+            ),
+          )
+          .catch(() => onErrorMessage('Unable to delete a todo'))
+          .finally(() =>
+            onLoading(prev => prev.filter(item => item !== todo.id)),
+          );
+      }
+    });
+  }
 
   return (
     <footer className="todoapp__footer" data-cy="Footer">
@@ -77,9 +101,7 @@ export const Footer: React.FC<Props> = ({
         className="todoapp__clear-completed"
         data-cy="ClearCompletedButton"
         disabled={[...todos].filter(todo => todo.completed).length === 0}
-        onClick={() => {
-          todos.map(todo => todo.completed && onDeleteTodos(todo.id));
-        }}
+        onClick={deleteCompletedTodos}
       >
         Clear completed
       </button>

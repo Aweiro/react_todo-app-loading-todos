@@ -13,10 +13,10 @@ export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<FilterTypes>('All');
-  // const [loading, setLoading] = useState(false);
-  // const [selectedPost, setSelectedPost] = useState<number | null>(null);
+  const [loading, setLoading] = useState<number[]>([]);
+  const [tempTodo, setTempTodo] = useState<Todo | null>(null);
+  const [disabledButton, setDisabledButton] = useState(false);
 
-  // #region services
   function loadTodos() {
     todoService
       .getTodos()
@@ -25,19 +25,6 @@ export const App: React.FC = () => {
       })
       .catch(() => setErrorMessage('Unable to load todos'));
   }
-
-  function deleteTodos(todoId: number) {
-    // setLoading(true);
-    // setSelectedPost(todoId);
-
-    todoService.deleteTodos(todoId).then(() => {
-      setTodos(currentTodos => currentTodos.filter(todo => todo.id !== todoId));
-      setErrorMessage('');
-    });
-    // .finally(() => setLoading(false));
-  }
-
-  // #endregion
 
   const filteredTodos = useMemo(() => {
     if (selectedFilter === 'Active') {
@@ -52,7 +39,6 @@ export const App: React.FC = () => {
   }, [selectedFilter, todos]);
 
   useEffect(loadTodos, []);
-
   useEffect(() => {
     const timerId = setTimeout(() => {
       setErrorMessage('');
@@ -67,23 +53,29 @@ export const App: React.FC = () => {
     return <UserWarning />;
   }
 
-  // console.log(todos);
-
   return (
     <div className="todoapp">
       <h1 className="todoapp__title">todos</h1>
 
       <div className="todoapp__content">
         <Header
-          todos={todos}
           onTodos={setTodos}
           onErrorMessage={setErrorMessage}
+          onLoading={setLoading}
+          onTempTodo={setTempTodo}
+          todos={todos}
+          disabledButton={disabledButton}
         />
 
         <TodoList
-          todos={filteredTodos}
+          todos={todos}
+          filteredTodos={filteredTodos}
           onTodos={setTodos}
-          onDeleteTodos={deleteTodos}
+          onLoading={setLoading}
+          loading={loading}
+          tempTodo={tempTodo}
+          onErrorMessage={setErrorMessage}
+          onDisabledButton={setDisabledButton}
         />
         {/* Hide the footer if there are no todos */}
         {todos.length > 0 && (
@@ -91,7 +83,9 @@ export const App: React.FC = () => {
             todos={todos}
             filterType={selectedFilter}
             onFilterType={setSelectedFilter}
-            onDeleteTodos={deleteTodos}
+            onTodos={setTodos}
+            onLoading={setLoading}
+            onErrorMessage={setErrorMessage}
           />
         )}
       </div>
@@ -117,11 +111,11 @@ export const App: React.FC = () => {
           <br />
           Title should not be empty +
           <br />
-          Unable to add a todo
+          Unable to add a todo +
           <br />
-          Unable to delete a todo
+          Unable to delete a todo +
           <br />
-          Unable to update a todo */}
+          Unable to update a todo + */}
         {errorMessage}
       </div>
     </div>

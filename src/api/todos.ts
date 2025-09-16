@@ -15,4 +15,8 @@ export function addTodos({ title, userId, completed }: Omit<Todo, 'id'>) {
   return client.post<Todo>('/todos', { title, userId, completed });
 }
 
+export function updateTodos({ id, ...todotData }: Todo) {
+  return client.patch<Todo>(`/todos/${id}`, todotData);
+}
+
 // Add more methods here
