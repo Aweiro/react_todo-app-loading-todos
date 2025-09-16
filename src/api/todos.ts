@@ -11,7 +11,7 @@ export function deleteTodos(postId: number) {
   return client.delete(`/todos/${postId}`);
 }
 
-export function addPost({ title, userId, completed }: Omit<Todo, 'id'>) {
+export function addTodos({ title, userId, completed }: Omit<Todo, 'id'>) {
   return client.post<Todo>('/todos', { title, userId, completed });
 }
 
