@@ -2,6 +2,7 @@ import classNames from 'classnames';
 import React from 'react';
 import { Todo } from '../../types/Todo';
 import * as todoService from '../../api/todos';
+import { ErrorMessages } from '../../types/Errors';
 
 type FilterTypes = 'All' | 'Active' | 'Completed';
 
@@ -11,7 +12,7 @@ interface Props {
   onFilterType: (v: FilterTypes) => void;
   onTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
   onLoading: React.Dispatch<React.SetStateAction<number[]>>;
-  onErrorMessage: (message: string) => void;
+  onErrorMessage: (message: ErrorMessages) => void;
 }
 
 export const Footer: React.FC<Props> = ({
@@ -45,7 +46,7 @@ export const Footer: React.FC<Props> = ({
               currentTodos.filter(currentTodo => currentTodo.id !== todo.id),
             ),
           )
-          .catch(() => onErrorMessage('Unable to delete a todo'))
+          .catch(() => onErrorMessage(ErrorMessages.Delete))
           .finally(() =>
             onLoading(prev => prev.filter(item => item !== todo.id)),
           );

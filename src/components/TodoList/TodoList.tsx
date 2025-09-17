@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Todo } from '../../types/Todo';
 import { TodoItem } from '../TodoItem/TodoItem';
 import * as todoService from '../../api/todos';
+import { ErrorMessages } from '../../types/Errors';
 
 interface Props {
   filteredTodos: Todo[];
@@ -10,7 +11,7 @@ interface Props {
   onLoading: React.Dispatch<React.SetStateAction<number[]>>;
   loading: number[];
   tempTodo: Todo | null;
-  onErrorMessage: (message: string) => void;
+  onErrorMessage: (message: ErrorMessages) => void;
   onDisabledButton: (message: boolean) => void;
 }
 
@@ -40,7 +41,7 @@ export const TodoList: React.FC<Props> = ({
           });
         });
       })
-      .catch(() => onErrorMessage('Unable to update a todo'))
+      .catch(() => onErrorMessage(ErrorMessages.Update))
       .finally(() =>
         onLoading(prev => prev.filter(item => item !== todoToUpdate.id)),
       );
@@ -56,7 +57,7 @@ export const TodoList: React.FC<Props> = ({
           currentTodos.filter(todo => todo.id !== todoId),
         );
       })
-      .catch(() => onErrorMessage('Unable to delete a todo'))
+      .catch(() => onErrorMessage(ErrorMessages.Delete))
       .finally(() => onLoading(prev => prev.filter(item => item !== todoId)));
   }
 

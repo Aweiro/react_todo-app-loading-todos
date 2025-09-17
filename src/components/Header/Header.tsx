@@ -8,14 +8,16 @@ import React, {
 import { Todo } from '../../types/Todo';
 import * as todoService from '../../api/todos';
 import classNames from 'classnames';
+import { ErrorMessages } from '../../types/Errors';
 
 interface Props {
   onTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
   onLoading: React.Dispatch<React.SetStateAction<number[]>>;
   onTempTodo: React.Dispatch<React.SetStateAction<Todo | null>>;
-  onErrorMessage: (message: string) => void;
+  onErrorMessage: (message: ErrorMessages) => void;
   todos: Todo[];
   disabledButton: boolean;
+  loading: number[];
 }
 
 export const Header: React.FC<Props> = ({
@@ -25,6 +27,7 @@ export const Header: React.FC<Props> = ({
   onTempTodo,
   todos,
   disabledButton,
+  loading,
 }) => {
   const [query, setQuery] = useState('');
   const [disabledInput, setDisabledInput] = useState(false);
@@ -35,7 +38,7 @@ export const Header: React.FC<Props> = ({
     if (inputRef.current) {
       inputRef.current.focus();
     }
-  }, [disabledInput]);
+  }, [todos.length]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -45,9 +48,10 @@ export const Header: React.FC<Props> = ({
     e.preventDefault();
     onLoading(prev => [...prev, 0]);
     setDisabledInput(true);
+    const trimmedQuery = query.trim();
 
-    if (query.trim() === '') {
-      onErrorMessage('Title should not be empty');
+    if (trimmedQuery === '') {
+      onErrorMessage(ErrorMessages.Empty);
       onTempTodo(null);
       setDisabledInput(false);
 
@@ -56,65 +60,67 @@ export const Header: React.FC<Props> = ({
 
     onTempTodo({
       id: 0,
-      title: query,
+      title: trimmedQuery,
       userId: todoService.USER_ID,
       completed: false,
     });
 
     todoService
       .addTodos({
-        title: query,
+        title: trimmedQuery,
         userId: todoService.USER_ID,
         completed: false,
       })
       .then(newPost => {
         onTodos(currentTodos => [...currentTodos, newPost]);
       })
-      .catch(() => onErrorMessage('Unable to add a todo'))
+      .catch(() => onErrorMessage(ErrorMessages.Add))
+      .then(() => setQuery(''))
       .finally(() => {
         onTempTodo(null);
         setDisabledInput(false);
         onLoading(prev => prev.filter(item => item !== 0));
       });
-    setQuery('');
   };
 
   function handleClickAllCompleted(todosToUpdate: Todo[]) {
     todosToUpdate.map(todoToUpdate => {
       if ((!disabledButton && !todoToUpdate.completed) || disabledButton) {
         onLoading(prev => [...prev, todoToUpdate.id]);
-      }
 
-      todoService
-        .updateTodos({
-          ...todoToUpdate,
-          completed: disabledButton ? false : true,
-        })
-        .then(() => {
-          onTodos(currentTodos =>
-            currentTodos.map(item => {
-              return { ...item, completed: disabledButton ? false : true };
-            }),
-          );
-        })
-        .catch(() => onErrorMessage('Unable to update a todo'))
-        .finally(() => {
-          onLoading(prev => prev.filter(item => item !== todoToUpdate.id));
-        });
+        todoService
+          .updateTodos({
+            ...todoToUpdate,
+            completed: disabledButton ? false : true,
+          })
+          .then(() => {
+            onTodos(currentTodos =>
+              currentTodos.map(item => {
+                return { ...item, completed: disabledButton ? false : true };
+              }),
+            );
+          })
+          .catch(() => onErrorMessage(ErrorMessages.Update))
+          .finally(() => {
+            onLoading(prev => prev.filter(item => item !== todoToUpdate.id));
+          });
+      }
     });
   }
 
   return (
     <header className="todoapp__header">
       {/* this button should have `active` class only if all todos are completed */}
-      <button
-        type="button"
-        className={classNames('todoapp__toggle-all', {
-          active: disabledButton,
-        })}
-        data-cy="ToggleAllButton"
-        onClick={() => handleClickAllCompleted(todos)}
-      />
+      {loading && todos.length > 0 && (
+        <button
+          type="button"
+          className={classNames('todoapp__toggle-all', {
+            active: disabledButton,
+          })}
+          data-cy="ToggleAllButton"
+          onClick={() => handleClickAllCompleted(todos)}
+        />
+      )}
 
       {/* Add a todo on form submit */}
       <form onSubmit={handleSubmit}>
